@@ -1,0 +1,4 @@
+anthropic-bedrock
+boto3
+openai
+python-dotenv
