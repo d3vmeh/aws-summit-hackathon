@@ -8,7 +8,7 @@ import json
 from datetime import datetime, timedelta
 
 # API Configuration
-BASE_URL = "http://localhost:8090"
+BASE_URL = "http://localhost:8080"
 ANALYZE_ENDPOINT = f"{BASE_URL}/api/stress/analyze"
 
 def create_mock_calendar_events():

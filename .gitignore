@@ -106,6 +106,7 @@ jspm_packages/
 # Temporary folders
 tmp/
 temp/
+archive/
 
 # Test files
 ai_response 2.py
