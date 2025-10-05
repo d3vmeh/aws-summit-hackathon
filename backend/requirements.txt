@@ -2,3 +2,9 @@ anthropic-bedrock
 boto3
 openai
 python-dotenv
+fastapi
+uvicorn[standard]
+pydantic
+google-auth
+google-auth-oauthlib
+google-api-python-client

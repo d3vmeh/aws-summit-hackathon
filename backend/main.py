@@ -1,11 +1,13 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import RedirectResponse
 from typing import List
 
 # Import your modules
 from schemas import BurnoutPrediction, CalendarEvent, Task
 from stress_calculator import StressCalculator
 from ai_response import generate_burnout_predictions, generate_ai_interventions
+from google_calendar import get_calendar_client
 
 app = FastAPI(title="Burnout Prevention API", version="1.0.0")
 
@@ -76,18 +78,89 @@ async def analyze_stress(request: AnalyzeRequest):
         print(f"Error analyzing stress: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-# Optional endpoints for managing data
+# Google Calendar OAuth endpoints
+@app.get("/auth/google")
+def google_auth():
+    """Initiate Google Calendar OAuth flow"""
+    try:
+        client = get_calendar_client()
+        auth_url = client.get_auth_url()
+        return {"auth_url": auth_url}
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"OAuth initialization failed: {str(e)}")
+
+@app.get("/auth/google/callback")
+def google_callback(code: str):
+    """Handle Google OAuth callback"""
+    try:
+        client = get_calendar_client()
+        client.handle_oauth_callback(code)
+
+        # Redirect to frontend with success
+        return RedirectResponse(url="http://localhost:3000?auth=success")
+
+    except Exception as e:
+        # Redirect to frontend with error
+        return RedirectResponse(url=f"http://localhost:3000?auth=error&message={str(e)}")
+
+@app.get("/auth/status")
+def auth_status():
+    """Check if user is authenticated with Google Calendar"""
+    client = get_calendar_client()
+    return {
+        "authenticated": client.is_authenticated(),
+        "provider": "Google Calendar" if client.is_authenticated() else None
+    }
+
+@app.post("/auth/disconnect")
+def disconnect():
+    """Disconnect Google Calendar"""
+    client = get_calendar_client()
+    client.disconnect()
+    return {"status": "disconnected"}
+
+# Calendar endpoints
 @app.get("/api/calendar/events")
-def get_events():
-    """Get all stored events"""
-    return events_db
+def get_events(days_ahead: int = 7):
+    """
+    Get calendar events - from Google Calendar if connected, otherwise return empty list
+    """
+    client = get_calendar_client()
 
-@app.post("/api/calendar/events")
-def create_event(event: CalendarEvent):
-    """Add an event"""
-    events_db.append(event)
-    return event
+    if client.is_authenticated():
+        try:
+            # Fetch from Google Calendar
+            events = client.fetch_events(days_ahead=days_ahead)
+            return events
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to fetch events: {str(e)}")
+    else:
+        # Return empty list if not authenticated
+        return []
 
+@app.get("/api/calendar/sync")
+def sync_calendar(days_ahead: int = 7):
+    """
+    Manually trigger calendar sync from Google Calendar
+    """
+    client = get_calendar_client()
+
+    if not client.is_authenticated():
+        raise HTTPException(status_code=401, detail="Not authenticated. Please connect Google Calendar first.")
+
+    try:
+        events = client.fetch_events(days_ahead=days_ahead)
+        return {
+            "status": "synced",
+            "events_count": len(events),
+            "events": events
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Sync failed: {str(e)}")
+
+# Task endpoints
 @app.get("/api/tasks/")
 def get_tasks():
     """Get all stored tasks"""

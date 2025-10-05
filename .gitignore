@@ -21,6 +21,8 @@ venv.bak/
 credentials.json
 token.json
 *.json.user
+backend/credentials.json
+backend/token.json
 
 # Database
 *.db

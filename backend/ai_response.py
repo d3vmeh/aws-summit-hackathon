@@ -1,8 +1,10 @@
 import os
 import json
 import re
+import time
 from dotenv import load_dotenv
 import boto3
+from botocore.exceptions import ClientError
 from datetime import datetime
 from schemas import CalendarEvent, Task, StressFactors, Intervention
 from typing import List, Dict
@@ -23,18 +25,45 @@ def get_client():
       print("Client created successfully")
       return client
 
-def generate_burnout_predictions(events: List[CalendarEvent], 
-                                tasks: List[Task], 
+def invoke_model_with_retry(client, model_id: str, request_body: str, max_retries: int = 3):
+    """Invoke Bedrock model with exponential backoff retry for throttling"""
+    for attempt in range(max_retries):
+        try:
+            response = client.invoke_model(modelId=model_id, body=request_body)
+            return json.loads(response.get('body').read())
+        except ClientError as e:
+            if e.response['Error']['Code'] == 'ThrottlingException':
+                if attempt < max_retries - 1:
+                    wait_time = (2 ** attempt) * 1  # Exponential backoff: 1s, 2s, 4s
+                    print(f"Throttled by AWS Bedrock. Waiting {wait_time}s before retry (attempt {attempt + 1}/{max_retries})...")
+                    time.sleep(wait_time)
+                else:
+                    print("Max retries reached for throttling.")
+                    raise
+            else:
+                raise
+    return None
+
+def _to_naive(dt: datetime) -> datetime:
+    """Convert datetime to timezone-naive"""
+    if dt.tzinfo is not None:
+        return dt.replace(tzinfo=None)
+    return dt
+
+def generate_burnout_predictions(events: List[CalendarEvent],
+                                tasks: List[Task],
                                 stress_factors: StressFactors) -> List[str]:
 
     client = get_client()
 
     event_details = []
+    now = _to_naive(datetime.now())
     for event in events[:10]:
-        days_away = (event.start - datetime.now()).days
+        event_start = _to_naive(event.start)
+        days_away = (event_start - now).days
         day_label = "Today" if days_away == 0 else f"in {days_away} days"
         event_details.append(
-            f"  • {event.summary} ({day_label}, {event.start.strftime('%a %I:%M%p')})"
+            f"  • {event.summary} ({day_label}, {event_start.strftime('%a %I:%M%p')})"
         )
 
     task_details = []
@@ -92,9 +121,14 @@ Return JSON: {{"predictions": ["prediction 1", "prediction 2", "prediction 3"]}}
     }
 
     request = json.dumps(model_request)
-    response = client.invoke_model(modelId=model_id, body=request)
-    response_body = json.loads(response.get('body').read())
-    text_response = response_body['content'][0]['text']
+
+    try:
+        response_body = invoke_model_with_retry(client, model_id, request)
+        text_response = response_body['content'][0]['text']
+    except ClientError as e:
+        if e.response['Error']['Code'] == 'ThrottlingException':
+            return ["Rate limit reached. Please wait a moment and refresh."]
+        raise
 
     # Parse JSON response to dictionary
     try:
@@ -127,17 +161,20 @@ def generate_ai_interventions(events: List[CalendarEvent],
 
     # Build event context
     events_context = []
-    now = datetime.now()
+    now = _to_naive(datetime.now())
     for i, event in enumerate(events[:8], 1):
-        start_time = event.start.strftime('%a %b %d, %I:%M%p')
-        duration = (event.end - event.start).total_seconds() / 3600
+        event_start = _to_naive(event.start)
+        event_end = _to_naive(event.end)
+        start_time = event_start.strftime('%a %b %d, %I:%M%p')
+        duration = (event_end - event_start).total_seconds() / 3600
         events_context.append(f"{i}. {event.summary} - {start_time} ({duration:.1f}h)")
 
     # Build task context
     tasks_context = []
     for i, task in enumerate(tasks[:8], 1):
         if task.due_date:
-            days_until = (task.due_date - now).days
+            task_due = _to_naive(task.due_date)
+            days_until = (task_due - now).days
             due_str = f"DUE IN {days_until}d" if days_until > 0 else f"OVERDUE by {abs(days_until)}d"
         else:
             due_str = "No deadline"
@@ -207,9 +244,14 @@ Each intervention MUST include ALL fields:
     }
 
     request = json.dumps(model_request)
-    response = client.invoke_model(modelId=model_id, body=request)
-    response_body = json.loads(response.get('body').read())
-    text_response = response_body['content'][0]['text']
+
+    try:
+        response_body = invoke_model_with_retry(client, model_id, request)
+        text_response = response_body['content'][0]['text']
+    except ClientError as e:
+        if e.response['Error']['Code'] == 'ThrottlingException':
+            return []  # Return empty interventions list on rate limit
+        raise
 
     # Parse JSON response to dictionary
     try:

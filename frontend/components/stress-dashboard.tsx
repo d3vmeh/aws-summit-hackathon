@@ -12,24 +12,68 @@ export function StressDashboard() {
   const [prediction, setPrediction] = useState<BurnoutPrediction | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [calendarProvider, setCalendarProvider] = useState<string | null>(null);
 
   useEffect(() => {
+    checkAuthStatus();
     loadStressAnalysis();
   }, []);
+
+  async function checkAuthStatus() {
+    try {
+      const status = await api.getAuthStatus();
+      setIsAuthenticated(status.authenticated);
+      setCalendarProvider(status.provider);
+    } catch (err) {
+      console.error("Error checking auth status:", err);
+    }
+  }
 
   async function loadStressAnalysis() {
     try {
       setLoading(true);
       setError(null);
 
-      // Use mock data for demo
-      const result = await api.analyzeStress(mockEvents, mockTasks);
+      // Try to get real calendar events if authenticated, otherwise use mock data
+      let events = mockEvents;
+      if (isAuthenticated) {
+        try {
+          events = await api.getCalendarEvents();
+        } catch (err) {
+          console.warn("Failed to fetch calendar events, using mock data:", err);
+        }
+      }
+
+      const result = await api.analyzeStress(events, mockTasks);
       setPrediction(result);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load analysis");
       console.error("Error loading stress analysis:", err);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleConnectCalendar() {
+    try {
+      const { auth_url } = await api.getGoogleAuthUrl();
+      window.location.href = auth_url;
+    } catch (err) {
+      console.error("Error getting auth URL:", err);
+      setError("Failed to initiate Google Calendar connection");
+    }
+  }
+
+  async function handleDisconnectCalendar() {
+    try {
+      await api.disconnectCalendar();
+      setIsAuthenticated(false);
+      setCalendarProvider(null);
+      loadStressAnalysis(); // Reload with mock data
+    } catch (err) {
+      console.error("Error disconnecting calendar:", err);
+      setError("Failed to disconnect calendar");
     }
   }
 
@@ -114,6 +158,53 @@ export function StressDashboard() {
             AI-powered stress analysis using Amazon Bedrock
           </p>
         </div>
+
+        {/* Google Calendar Connection Card */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+              <span>📅 Calendar Connection</span>
+              {isAuthenticated && (
+                <Badge variant="secondary" className="bg-green-100 text-green-800">
+                  Connected
+                </Badge>
+              )}
+            </CardTitle>
+            <CardDescription>
+              {isAuthenticated
+                ? `Connected to ${calendarProvider} - Using real calendar data`
+                : "Connect your Google Calendar for personalized stress analysis"}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {isAuthenticated ? (
+              <div className="flex items-center gap-4">
+                <button
+                  onClick={loadStressAnalysis}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  Sync Calendar
+                </button>
+                <button
+                  onClick={handleDisconnectCalendar}
+                  className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+                >
+                  Disconnect
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={handleConnectCalendar}
+                className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+              >
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12.545,10.239v3.821h5.445c-0.712,2.315-2.647,3.972-5.445,3.972c-3.332,0-6.033-2.701-6.033-6.032s2.701-6.032,6.033-6.032c1.498,0,2.866,0.549,3.921,1.453l2.814-2.814C17.503,2.988,15.139,2,12.545,2C7.021,2,2.543,6.477,2.543,12s4.478,10,10.002,10c8.396,0,10.249-7.85,9.426-11.748L12.545,10.239z"/>
+                </svg>
+                Connect Google Calendar
+              </button>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Stress Score Card */}
         <Card>

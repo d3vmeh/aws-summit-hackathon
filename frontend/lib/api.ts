@@ -51,4 +51,39 @@ export const api = {
     }
     return response.json();
   },
+
+  // Google Calendar Auth
+  async getGoogleAuthUrl(): Promise<{ auth_url: string }> {
+    const response = await fetch(`${API_URL}/auth/google`);
+    if (!response.ok) {
+      throw new Error(`API error: ${response.statusText}`);
+    }
+    return response.json();
+  },
+
+  async getAuthStatus(): Promise<{ authenticated: boolean; provider: string | null }> {
+    const response = await fetch(`${API_URL}/auth/status`);
+    if (!response.ok) {
+      throw new Error(`API error: ${response.statusText}`);
+    }
+    return response.json();
+  },
+
+  async disconnectCalendar(): Promise<{ status: string }> {
+    const response = await fetch(`${API_URL}/auth/disconnect`, {
+      method: "POST",
+    });
+    if (!response.ok) {
+      throw new Error(`API error: ${response.statusText}`);
+    }
+    return response.json();
+  },
+
+  async syncCalendar(daysAhead: number = 7): Promise<{ status: string; events_count: number; events: CalendarEvent[] }> {
+    const response = await fetch(`${API_URL}/api/calendar/sync?days_ahead=${daysAhead}`);
+    if (!response.ok) {
+      throw new Error(`API error: ${response.statusText}`);
+    }
+    return response.json();
+  },
 };
