@@ -13,7 +13,6 @@ class StressCalculator:
 
         task_score = min(100, factors.overdue_tasks * 10 +
                         factors.high_priority_tasks * 5)
-
         sleep_score = max(0, 100 - (factors.sleep_hours_available * 12))
 
         # Weighted total: calendar 40%, tasks 30%, sleep 30%

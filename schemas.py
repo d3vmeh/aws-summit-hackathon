@@ -23,6 +23,7 @@ class StressScore(BaseModel):
     task_factor: float
     sleep_factor: float
     risk_level: str  # low, medium, high, critical
+    timestamp: datetime
 
 class StressFactors(BaseModel):
     events_next_7_days: int
