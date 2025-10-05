@@ -25,6 +25,8 @@ export function StressDashboard() {
   const [availableCalendars, setAvailableCalendars] = useState<Calendar[]>([]);
   const [selectedCalendarIds, setSelectedCalendarIds] = useState<string[]>(['primary']);
   const [showCalendarSelector, setShowCalendarSelector] = useState(false);
+  const [calendarEvents, setCalendarEvents] = useState<any[]>([]);
+  const [showCalendarView, setShowCalendarView] = useState(false);
 
   useEffect(() => {
     checkAuthStatus();
@@ -63,9 +65,12 @@ export function StressDashboard() {
       if (isAuthenticated) {
         try {
           events = await api.getCalendarEvents();
+          setCalendarEvents(events); // Store events for calendar view
         } catch (err) {
           console.warn("Failed to fetch calendar events, using mock data:", err);
         }
+      } else {
+        setCalendarEvents(mockEvents); // Store mock events
       }
 
       const result = await api.analyzeStress(events, mockTasks);
@@ -475,6 +480,81 @@ export function StressDashboard() {
             )}
           </CardContent>
         </Card>
+
+        {/* Calendar Events Visualization */}
+        {calendarEvents.length > 0 && (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  Calendar Events
+                </CardTitle>
+                <button
+                  onClick={() => setShowCalendarView(!showCalendarView)}
+                  className="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  {showCalendarView ? "Hide" : "Show"} ({calendarEvents.length})
+                </button>
+              </div>
+            </CardHeader>
+            {showCalendarView && (
+              <CardContent>
+                <div className="space-y-3 max-h-96 overflow-y-auto">
+                  {calendarEvents.map((event, index) => {
+                    const startTime = new Date(event.start);
+                    const endTime = new Date(event.end);
+                    const duration = (endTime.getTime() - startTime.getTime()) / (1000 * 60);
+                    const isToday = startTime.toDateString() === new Date().toDateString();
+
+                    return (
+                      <div
+                        key={event.id || index}
+                        className={`p-4 rounded-lg border-l-4 ${
+                          isToday ? 'bg-blue-50 border-blue-500' : 'bg-gray-50 border-gray-300'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <h4 className="font-semibold text-gray-900">{event.summary}</h4>
+                            <div className="flex items-center gap-4 mt-2 text-sm text-gray-600">
+                              <div className="flex items-center gap-1">
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                {startTime.toLocaleString('en-US', {
+                                  weekday: 'short',
+                                  month: 'short',
+                                  day: 'numeric',
+                                  hour: 'numeric',
+                                  minute: '2-digit'
+                                })}
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                                </svg>
+                                {duration < 60 ? `${duration} min` : `${(duration / 60).toFixed(1)} hr`}
+                              </div>
+                            </div>
+                            {event.description && (
+                              <p className="mt-2 text-sm text-gray-500 line-clamp-2">{event.description}</p>
+                            )}
+                          </div>
+                          {isToday && (
+                            <Badge className="bg-blue-100 text-blue-700 border-blue-200">Today</Badge>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            )}
+          </Card>
+        )}
 
         {/* Stress Score Card */}
         <Card>
