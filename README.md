@@ -19,7 +19,9 @@ aws-summit-hackathon/
 │   ├── components/                 # React components (stress dashboard, UI)
 │   ├── lib/                        # API client and utilities
 │   └── package.json                # Frontend dependencies
-├── CLAUDE.md                       # Development documentation for Claude Code
+├── archive/                        # Archive folder
+│   ├── CLAUDE.md                   # Development documentation (archived)
+│   └── test_response_claude.json   # Test files (archived)
 └── README.md                       # This file
 ```
 
