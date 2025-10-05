@@ -28,10 +28,10 @@ export interface StressScore {
 
 export interface StressFactors {
   events_next_7_days: number;
-  overdue_tasks: number;
-  high_priority_tasks: number;
+  immediate_action_tasks: number;
   calendar_density: number;
   sleep_hours_available: number;
+  average_break_length: number;
 }
 
 export interface Intervention {

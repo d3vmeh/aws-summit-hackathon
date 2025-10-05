@@ -83,7 +83,7 @@ METRICS:
 - Events next 7 days: {stress_factors.events_next_7_days}
 - Calendar density: {stress_factors.calendar_density:.1f}%
 - Sleep: {stress_factors.sleep_hours_available:.1f}h
-- Overdue: {stress_factors.overdue_tasks} | High priority: {stress_factors.high_priority_tasks}
+- Immediate tasks (due today/tomorrow): {stress_factors.immediate_action_tasks}
 
 Provide 3 concise predictions (1-2 sentences each). Reference specific events/tasks by name.
 
@@ -175,7 +175,7 @@ def generate_ai_interventions(events: List[CalendarEvent],
 STRESS: {stress_score:.1f}/100 ({risk_label})
 EVENTS: {events_text[:200]}...
 TASKS: {tasks_text[:200]}...
-Overdue: {stress_factors.overdue_tasks} | Sleep: {stress_factors.sleep_hours_available:.1f}h
+Immediate tasks (due today/tomorrow): {stress_factors.immediate_action_tasks} | Sleep: {stress_factors.sleep_hours_available:.1f}h
 
 Return JSON with 3 interventions. Each MUST have ALL fields:
 {{"interventions": [

@@ -27,10 +27,10 @@ class StressScore(BaseModel):
 
 class StressFactors(BaseModel):
     events_next_7_days: int
-    overdue_tasks: int
-    high_priority_tasks: int
+    immediate_action_tasks: int  # Tasks due today or tomorrow
     calendar_density: float
     sleep_hours_available: float
+    average_break_length: float
 
 class Intervention(BaseModel):
     id: str

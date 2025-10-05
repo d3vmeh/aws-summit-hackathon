@@ -591,13 +591,13 @@ export function StressDashboard() {
               </div>
 
               <div className="space-y-2">
-                <p className="text-sm font-medium text-gray-600">Task Pressure</p>
+                <p className="text-sm font-medium text-gray-600">Immediate Action Items</p>
                 <div className="text-2xl font-bold">
                   {Math.round(stress_score.task_factor)}
                 </div>
                 <Progress value={stress_score.task_factor} />
                 <p className="text-xs text-gray-500">
-                  {factors.high_priority_tasks} high priority tasks
+                  {factors.immediate_action_tasks} task{factors.immediate_action_tasks !== 1 ? 's' : ''} due today/tomorrow
                 </p>
               </div>
 
