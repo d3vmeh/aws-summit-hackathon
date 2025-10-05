@@ -73,44 +73,27 @@ def generate_burnout_predictions(events: List[CalendarEvent],
             f"  • [{task.priority.upper()}] {task.title} - Due: {due_str}"
         )
 
-    prompt = f"""You are an expert in student and career counseling, mental health, and burnout prevention. You analyze a 
-student's schedule and personalize burnout prevention recommendations to them.
+    prompt = f"""You are a burnout prevention expert. Analyze this student's schedule and provide 3 brief, specific predictions.
 
-DETAILED SCHEDULE ANALYSIS:
+SCHEDULE:
+📅 Events ({len(events)}): {chr(10).join(event_details[:5]) if event_details else 'None'}
+📋 Tasks ({len(tasks)}): {chr(10).join(task_details[:5]) if task_details else 'None'}
 
-📅 UPCOMING EVENTS ({len(events)} total):
-{chr(10).join(event_details) if event_details else '  • No upcoming events'}
+METRICS:
+- Events next 7 days: {stress_factors.events_next_7_days}
+- Calendar density: {stress_factors.calendar_density:.1f}%
+- Sleep: {stress_factors.sleep_hours_available:.1f}h
+- Overdue: {stress_factors.overdue_tasks} | High priority: {stress_factors.high_priority_tasks}
 
-📋 CURRENT TASKS ({len(tasks)} total):
-{chr(10).join(task_details) if task_details else '  • No tasks'}
+Provide 3 concise predictions (1-2 sentences each). Reference specific events/tasks by name.
 
-KEY METRICS:
-- Events in next 7 days: {stress_factors.events_next_7_days}
-- Calendar density today: {stress_factors.calendar_density:.1f}% (% of waking hours scheduled)
-- Sleep opportunity: {stress_factors.sleep_hours_available:.1f} hours
-- Overdue tasks: {stress_factors.overdue_tasks}
-- High priority pending tasks: {stress_factors.high_priority_tasks}
-
-YOUR TASK: Analyze this ACTUAL student's schedule and provide 3 highly specific, personalized predictions to help them avoid 
-burnout.
-
-Requirements:
-1. Reference SPECIFIC events and tasks by name (e.g., "Your MATH 32A lecture after back-to-back meetings...")
-2. Identify concrete time conflicts or scheduling patterns
-3. Point out recovery gaps or lack thereof
-4. Notice if workload is front-loaded or back-loaded in the week
-5. Highlight specific stress compounding factors (e.g., "exam prep + project deadline on same day")
-
-DO NOT give generic advice. Be specific to THIS student's ACTUAL schedule shown above.
-
-Response Format:
 Return JSON: {{"predictions": ["prediction 1", "prediction 2", "prediction 3"]}}
 """
 
     model_id = "us.anthropic.claude-sonnet-4-5-20250929-v1:0"
     model_request = {
         "anthropic_version": "bedrock-2023-05-31",
-        "max_tokens": 1000,
+        "max_tokens": 500,
         "temperature": 0.5,
         "messages": [
             {
@@ -187,53 +170,25 @@ def generate_ai_interventions(events: List[CalendarEvent],
     events_text = chr(10).join(events_context) if events_context else "No upcoming events"
     tasks_text = chr(10).join(tasks_context) if tasks_context else "No tasks"
 
-    prompt = f"""You are an expert counselor in burnout prevention for university students.
+    prompt = f"""Burnout prevention expert. Generate 3 brief interventions for this student.
 
-STRESS LEVEL: {stress_score:.1f}/100 (Risk: {risk_label})
+STRESS: {stress_score:.1f}/100 ({risk_label})
+EVENTS: {events_text[:200]}...
+TASKS: {tasks_text[:200]}...
+Overdue: {stress_factors.overdue_tasks} | Sleep: {stress_factors.sleep_hours_available:.1f}h
 
-UPCOMING EVENTS:
-{events_text}
-
-TASKS:
-{tasks_text}
-
-METRICS:
-- Overdue tasks: {stress_factors.overdue_tasks}
-- High priority: {stress_factors.high_priority_tasks}
-- Sleep hours: {stress_factors.sleep_hours_available:.1f}
-- Calendar density: {stress_factors.calendar_density:.1f}%
-
-YOUR TASK: Generate 3-5 SPECIFIC interventions to help this student avoid burnout. Reference actual event/task names.
-
-Response format:
-Return ONLY valid JSON with this EXACT structure:
-
+Return JSON with 3 interventions. Each MUST have ALL fields:
 {{"interventions": [
-{{
-    "id": "int-1",
-    "type": "reschedule",
-    "priority": "high",
-    "title": "Short title here",
-    "description": "Detailed description here",
-    "impact_score": 85,
-    "effort_score": 40
-}}
+  {{"id": "int-1", "type": "reschedule", "priority": "high", "title": "Brief title", "description": "1 sentence", "impact_score": 85, "effort_score": 40}}
 ]}}
 
-Each intervention MUST include ALL fields:
-- id: string (int-1, int-2, etc)
-- type: REQUIRED string - MUST be one of: reschedule, delegate, break_down, micro_break
-- priority: string (low/medium/high/critical)
-- title: string (brief)
-- description: string (specific to this student's schedule)
-- impact_score: number 0-100
-- effort_score: number 0-100
+Types: reschedule, delegate, break_down, micro_break. Keep descriptions to 1 sentence. Reference specific events/tasks.
 """
 
     model_id = "us.anthropic.claude-sonnet-4-5-20250929-v1:0"
     model_request = {
         "anthropic_version": "bedrock-2023-05-31",
-        "max_tokens": 1500,
+        "max_tokens": 800,
         "temperature": 0.5,
         "messages": [
             {
