@@ -1,21 +1,27 @@
 import os
 import json
+import re
 from dotenv import load_dotenv
 import boto3
-from datetime import datetime  
-from schemas import CalendarEvent, Task, StressFactors, Intervention 
+from datetime import datetime
+from schemas import CalendarEvent, Task, StressFactors, Intervention
 from typing import List, Dict
 
 load_dotenv(override=True)
 
 def get_client():
-    client = boto3.client(
-        'bedrock-runtime',
-        region_name=os.getenv('AWS_DEFAULT_REGION', 'us-west-2'),
-        aws_access_key_id=os.getenv('AWS_ACCESS_KEY_ID'),
-        aws_secret_access_key=os.getenv('AWS_SECRET_ACCESS_KEY')
-    )
-    return client
+      print("Loading AWS credentials...")
+      print(f"Region: {os.getenv('AWS_DEFAULT_REGION', 'us-west-2')}")
+      print(f"Access Key exists: {os.getenv('AWS_ACCESS_KEY_ID') is not None}")
+
+      client = boto3.client(
+          'bedrock-runtime',
+          region_name=os.getenv('AWS_DEFAULT_REGION', 'us-west-2'),
+          aws_access_key_id=os.getenv('AWS_ACCESS_KEY_ID'),
+          aws_secret_access_key=os.getenv('AWS_SECRET_ACCESS_KEY')
+      )
+      print("Client created successfully")
+      return client
 
 def generate_burnout_predictions(events: List[CalendarEvent], 
                                 tasks: List[Task], 

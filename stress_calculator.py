@@ -4,7 +4,7 @@ from schemas import StressScore, StressFactors, CalendarEvent, Task
 
 class StressCalculator:
     @staticmethod
-    def calculate_stress_score(events: List[CalendarEvent], tasks: List[Task], stress_factors: StressFactors) -> StressScore:
+    def calculate_stress_score(events: List[CalendarEvent], tasks: List[Task]) -> StressScore:
         factors = StressCalculator.get_stress_factors(events, tasks)
 
         # Calculate individual factor scores (0-100 scale)
