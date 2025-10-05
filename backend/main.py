@@ -9,7 +9,7 @@ from stress_calculator import StressCalculator
 from ai_response import generate_burnout_predictions, generate_ai_interventions
 from google_calendar import get_calendar_client
 
-app = FastAPI(title="Burnout Prevention API", version="1.0.0")
+app = FastAPI(title="Clarity AI - Burnout Prevention API", version="1.0.0")
 
 # Enable CORS (allows frontend to connect)
 app.add_middleware(
@@ -27,7 +27,7 @@ tasks_db: List[Task] = []
 @app.get("/")
 def root():
     return {
-        "message": "Burnout Prevention API",
+        "message": "Clarity AI - Burnout Prevention API",
         "status": "running"
     }
 

@@ -98,10 +98,10 @@ export function StressDashboard() {
           {/* Header */}
           <div className="text-center mb-8">
             <h1 className="text-4xl font-bold text-gray-900 mb-2">
-              Burnout Prevention Agent
+              Clarity AI
             </h1>
             <p className="text-gray-600">
-              AI-powered stress analysis using Amazon Bedrock
+              AI-powered burnout prevention for students
             </p>
           </div>
 
@@ -307,10 +307,10 @@ export function StressDashboard() {
         {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-gray-900 mb-2">
-            Burnout Prevention Agent
+            Clarity AI
           </h1>
           <p className="text-gray-600">
-            AI-powered stress analysis using Amazon Bedrock
+            AI-powered burnout prevention for students
           </p>
         </div>
 
