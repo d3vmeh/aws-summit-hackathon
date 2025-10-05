@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { BurnoutPrediction } from "@/lib/types";
+import { BurnoutPrediction, CalendarEvent } from "@/lib/types";
 import { api } from "@/lib/api";
 
 interface Calendar {
@@ -24,7 +24,7 @@ export function StressDashboard() {
   const [availableCalendars, setAvailableCalendars] = useState<Calendar[]>([]);
   const [selectedCalendarIds, setSelectedCalendarIds] = useState<string[]>(['primary']);
   const [showCalendarSelector, setShowCalendarSelector] = useState(false);
-  const [calendarEvents, setCalendarEvents] = useState<any[]>([]);
+  const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
   const [showCalendarView, setShowCalendarView] = useState(false);
 
   useEffect(() => {
@@ -500,8 +500,9 @@ export function StressDashboard() {
                     const endTime = new Date(event.end);
                     const duration = (endTime.getTime() - startTime.getTime()) / (1000 * 60);
                     const isToday = startTime.toDateString() === new Date().toDateString();
-                    // Create unique key combining event ID and start time to handle recurring events
-                    const uniqueKey = `${event.id}-${event.start}`;
+                    // Use index as key since events are already ordered by time
+                    // Each event occurrence is unique even if recurring
+                    const uniqueKey = `event-${index}`;
 
                     return (
                       <div
@@ -609,6 +610,9 @@ export function StressDashboard() {
                 <Progress value={stress_score.sleep_factor} />
                 <p className="text-xs text-gray-500">
                   {factors.sleep_hours_available.toFixed(1)} hours available
+                </p>
+                <p className="text-xs font-medium text-gray-700 mt-1">
+                  {factors.sleep_quality_message}
                 </p>
               </div>
             </div>

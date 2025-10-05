@@ -32,6 +32,7 @@ export interface StressFactors {
   calendar_density: number;
   sleep_hours_available: number;
   average_break_length: number;
+  sleep_quality_message: string;
 }
 
 export interface Intervention {

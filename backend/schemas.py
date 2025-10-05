@@ -31,6 +31,7 @@ class StressFactors(BaseModel):
     calendar_density: float
     sleep_hours_available: float
     average_break_length: float
+    sleep_quality_message: str  # Research-based sleep quality interpretation
 
 class Intervention(BaseModel):
     id: str
