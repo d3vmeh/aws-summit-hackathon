@@ -6,7 +6,6 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { BurnoutPrediction } from "@/lib/types";
 import { api } from "@/lib/api";
-import { mockEvents, mockTasks } from "@/lib/mock-data";
 
 interface Calendar {
   id: string;
@@ -60,20 +59,13 @@ export function StressDashboard() {
       setLoading(true);
       setError(null);
 
-      // Try to get real calendar events if authenticated, otherwise use mock data
-      let events = mockEvents;
-      if (isAuthenticated) {
-        try {
-          events = await api.getCalendarEvents();
-          setCalendarEvents(events); // Store events for calendar view
-        } catch (err) {
-          console.warn("Failed to fetch calendar events, using mock data:", err);
-        }
-      } else {
-        setCalendarEvents(mockEvents); // Store mock events
-      }
+      // Get real calendar events and tasks
+      const events = await api.getCalendarEvents();
+      const tasks = await api.getTasks();
 
-      const result = await api.analyzeStress(events, mockTasks);
+      setCalendarEvents(events); // Store events for calendar view
+
+      const result = await api.analyzeStress(events, tasks);
       setPrediction(result);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load analysis");

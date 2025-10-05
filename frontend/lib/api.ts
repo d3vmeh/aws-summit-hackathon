@@ -25,7 +25,7 @@ export const api = {
     return response.json();
   },
 
-  // Get calendar events (from mock data for now)
+  // Get calendar events from Google Calendar
   async getCalendarEvents(): Promise<CalendarEvent[]> {
     const response = await fetch(`${API_URL}/api/calendar/events`);
     if (!response.ok) {
@@ -34,7 +34,7 @@ export const api = {
     return response.json();
   },
 
-  // Get tasks (from mock data for now)
+  // Get tasks
   async getTasks(): Promise<Task[]> {
     const response = await fetch(`${API_URL}/api/tasks/`);
     if (!response.ok) {
