@@ -508,10 +508,12 @@ export function StressDashboard() {
                     const endTime = new Date(event.end);
                     const duration = (endTime.getTime() - startTime.getTime()) / (1000 * 60);
                     const isToday = startTime.toDateString() === new Date().toDateString();
+                    // Create unique key combining event ID and start time to handle recurring events
+                    const uniqueKey = `${event.id}-${event.start}`;
 
                     return (
                       <div
-                        key={event.id || index}
+                        key={uniqueKey}
                         className={`p-4 rounded-lg border-l-4 ${
                           isToday ? 'bg-blue-50 border-blue-500' : 'bg-gray-50 border-gray-300'
                         }`}
