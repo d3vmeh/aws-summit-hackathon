@@ -102,7 +102,7 @@ export function StressDashboard() {
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
               </span>
-              Powered by Claude Sonnet 4.5
+              Powered by Claude Sonnet 4.5 on AWS Bedrock
             </div>
             <h1 className="text-6xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-4">
               Clarity AI
