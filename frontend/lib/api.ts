@@ -86,4 +86,35 @@ export const api = {
     }
     return response.json();
   },
+
+  // Calendar selection
+  async listCalendars(): Promise<{ calendars: Array<{ id: string; summary: string; primary: boolean; backgroundColor: string }> }> {
+    const response = await fetch(`${API_URL}/api/calendar/list`);
+    if (!response.ok) {
+      throw new Error(`API error: ${response.statusText}`);
+    }
+    return response.json();
+  },
+
+  async getSelectedCalendars(): Promise<{ selected_calendar_ids: string[] }> {
+    const response = await fetch(`${API_URL}/api/calendar/selected`);
+    if (!response.ok) {
+      throw new Error(`API error: ${response.statusText}`);
+    }
+    return response.json();
+  },
+
+  async setSelectedCalendars(calendarIds: string[]): Promise<{ selected_calendar_ids: string[] }> {
+    const response = await fetch(`${API_URL}/api/calendar/selected`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(calendarIds),
+    });
+    if (!response.ok) {
+      throw new Error(`API error: ${response.statusText}`);
+    }
+    return response.json();
+  },
 };

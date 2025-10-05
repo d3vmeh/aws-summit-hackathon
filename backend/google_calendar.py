@@ -29,6 +29,7 @@ class GoogleCalendarClient:
 
     def __init__(self):
         self.credentials: Optional[Credentials] = None
+        self.selected_calendar_ids: List[str] = ['primary']  # Default to primary calendar
         self._load_credentials()
 
     def _load_credentials(self):
@@ -123,6 +124,50 @@ class GoogleCalendarClient:
         if TOKEN_FILE.exists():
             TOKEN_FILE.unlink()
         self.credentials = None
+        self.selected_calendar_ids = ['primary']
+
+    def list_calendars(self) -> List[dict]:
+        """
+        List all available calendars for the authenticated user
+
+        Returns:
+            List of calendar objects with id, summary, and primary flag
+        """
+        if not self.is_authenticated():
+            raise Exception("Not authenticated. Please connect Google Calendar first.")
+
+        try:
+            service = build('calendar', 'v3', credentials=self.credentials)
+            calendar_list = service.calendarList().list().execute()
+
+            calendars = []
+            for calendar in calendar_list.get('items', []):
+                calendars.append({
+                    'id': calendar['id'],
+                    'summary': calendar.get('summary', 'Unnamed Calendar'),
+                    'primary': calendar.get('primary', False),
+                    'backgroundColor': calendar.get('backgroundColor', '#9FC6E7')
+                })
+
+            return calendars
+
+        except Exception as e:
+            raise Exception(f"Failed to fetch calendar list: {str(e)}")
+
+    def set_selected_calendars(self, calendar_ids: List[str]):
+        """
+        Set which calendars to include in event fetching
+
+        Args:
+            calendar_ids: List of calendar IDs to include
+        """
+        if not calendar_ids:
+            calendar_ids = ['primary']
+        self.selected_calendar_ids = calendar_ids
+
+    def get_selected_calendars(self) -> List[str]:
+        """Get currently selected calendar IDs"""
+        return self.selected_calendar_ids
 
     def fetch_events(self, days_ahead: int = 7) -> List[CalendarEvent]:
         """
@@ -132,7 +177,7 @@ class GoogleCalendarClient:
             days_ahead: Number of days ahead to fetch events
 
         Returns:
-            List of CalendarEvent objects
+            List of CalendarEvent objects from selected calendars
         """
         if not self.is_authenticated():
             raise Exception("Not authenticated. Please connect Google Calendar first.")
@@ -145,17 +190,25 @@ class GoogleCalendarClient:
             time_min = now.isoformat() + 'Z'
             time_max = (now + timedelta(days=days_ahead)).isoformat() + 'Z'
 
-            # Fetch events from primary calendar
-            events_result = service.events().list(
-                calendarId='primary',
-                timeMin=time_min,
-                timeMax=time_max,
-                maxResults=100,
-                singleEvents=True,
-                orderBy='startTime'
-            ).execute()
+            # Fetch events from all selected calendars
+            all_events = []
+            for calendar_id in self.selected_calendar_ids:
+                try:
+                    events_result = service.events().list(
+                        calendarId=calendar_id,
+                        timeMin=time_min,
+                        timeMax=time_max,
+                        maxResults=100,
+                        singleEvents=True,
+                        orderBy='startTime'
+                    ).execute()
 
-            events = events_result.get('items', [])
+                    all_events.extend(events_result.get('items', []))
+                except Exception as e:
+                    print(f"Warning: Failed to fetch events from calendar {calendar_id}: {e}")
+                    continue
+
+            events = all_events
 
             # Convert to CalendarEvent objects
             calendar_events = []

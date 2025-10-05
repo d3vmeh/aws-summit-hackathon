@@ -8,16 +8,27 @@ import { BurnoutPrediction } from "@/lib/types";
 import { api } from "@/lib/api";
 import { mockEvents, mockTasks } from "@/lib/mock-data";
 
+interface Calendar {
+  id: string;
+  summary: string;
+  primary: boolean;
+  backgroundColor: string;
+}
+
 export function StressDashboard() {
   const [prediction, setPrediction] = useState<BurnoutPrediction | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [initializing, setInitializing] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [calendarProvider, setCalendarProvider] = useState<string | null>(null);
+  const [availableCalendars, setAvailableCalendars] = useState<Calendar[]>([]);
+  const [selectedCalendarIds, setSelectedCalendarIds] = useState<string[]>(['primary']);
+  const [showCalendarSelector, setShowCalendarSelector] = useState(false);
 
   useEffect(() => {
     checkAuthStatus();
-    loadStressAnalysis();
+    // Don't auto-load analysis on mount - let user select calendars first
   }, []);
 
   async function checkAuthStatus() {
@@ -25,8 +36,20 @@ export function StressDashboard() {
       const status = await api.getAuthStatus();
       setIsAuthenticated(status.authenticated);
       setCalendarProvider(status.provider);
+
+      if (status.authenticated) {
+        // Load available calendars and selected ones
+        const [calendarsRes, selectedRes] = await Promise.all([
+          api.listCalendars(),
+          api.getSelectedCalendars(),
+        ]);
+        setAvailableCalendars(calendarsRes.calendars);
+        setSelectedCalendarIds(selectedRes.selected_calendar_ids);
+      }
     } catch (err) {
       console.error("Error checking auth status:", err);
+    } finally {
+      setInitializing(false);
     }
   }
 
@@ -55,6 +78,129 @@ export function StressDashboard() {
     }
   }
 
+  // Show loading spinner when actively analyzing
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Analyzing your stress levels...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show initial state without running analysis
+  if (initializing || !prediction) {
+    return (
+      <div className="min-h-screen bg-gray-50 p-6">
+        <div className="max-w-6xl mx-auto space-y-6">
+          {/* Header */}
+          <div className="text-center mb-8">
+            <h1 className="text-4xl font-bold text-gray-900 mb-2">
+              Burnout Prevention Agent
+            </h1>
+            <p className="text-gray-600">
+              AI-powered stress analysis using Amazon Bedrock
+            </p>
+          </div>
+
+          {/* Google Calendar Connection Card */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <span>📅 Calendar Connection</span>
+                {isAuthenticated && (
+                  <Badge variant="secondary" className="bg-green-100 text-green-800">
+                    Connected
+                  </Badge>
+                )}
+              </CardTitle>
+              <CardDescription>
+                {isAuthenticated
+                  ? `Connected to ${calendarProvider} - Select calendars and run analysis`
+                  : "Connect your Google Calendar for personalized stress analysis"}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {isAuthenticated ? (
+                <div className="space-y-4">
+                  <div className="flex items-center gap-4">
+                    <button
+                      onClick={loadStressAnalysis}
+                      className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold"
+                    >
+                      Run Stress Analysis
+                    </button>
+                    <button
+                      onClick={() => setShowCalendarSelector(!showCalendarSelector)}
+                      className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                    >
+                      {showCalendarSelector ? "Hide" : "Select"} Calendars ({selectedCalendarIds.length})
+                    </button>
+                    <button
+                      onClick={handleDisconnectCalendar}
+                      className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+                    >
+                      Disconnect
+                    </button>
+                  </div>
+
+                  {showCalendarSelector && (
+                    <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                      <h3 className="font-semibold text-gray-900 mb-3">Select Calendars to Include:</h3>
+                      <div className="space-y-2 max-h-60 overflow-y-auto">
+                        {availableCalendars.map((calendar) => (
+                          <label
+                            key={calendar.id}
+                            className="flex items-center gap-3 p-2 hover:bg-gray-100 rounded cursor-pointer"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={selectedCalendarIds.includes(calendar.id)}
+                              onChange={() => toggleCalendarSelection(calendar.id)}
+                              className="w-4 h-4 text-blue-600 rounded"
+                            />
+                            <div
+                              className="w-4 h-4 rounded"
+                              style={{ backgroundColor: calendar.backgroundColor }}
+                            />
+                            <span className="text-sm text-gray-900">
+                              {calendar.summary}
+                              {calendar.primary && (
+                                <span className="ml-2 text-xs text-gray-500">(Primary)</span>
+                              )}
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <button
+                  onClick={handleConnectCalendar}
+                  className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+                >
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12.545,10.239v3.821h5.445c-0.712,2.315-2.647,3.972-5.445,3.972c-3.332,0-6.033-2.701-6.033-6.032s2.701-6.032,6.033-6.032c1.498,0,2.866,0.549,3.921,1.453l2.814-2.814C17.503,2.988,15.139,2,12.545,2C7.021,2,2.543,6.477,2.543,12s4.478,10,10.002,10c8.396,0,10.249-7.85,9.426-11.748L12.545,10.239z"/>
+                  </svg>
+                  Connect Google Calendar
+                </button>
+              )}
+            </CardContent>
+          </Card>
+
+          {!isAuthenticated && (
+            <div className="text-center py-12">
+              <p className="text-gray-500">Connect your calendar to get started with stress analysis</p>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   async function handleConnectCalendar() {
     try {
       const { auth_url } = await api.getGoogleAuthUrl();
@@ -70,22 +216,31 @@ export function StressDashboard() {
       await api.disconnectCalendar();
       setIsAuthenticated(false);
       setCalendarProvider(null);
-      loadStressAnalysis(); // Reload with mock data
+      setAvailableCalendars([]);
+      setSelectedCalendarIds(['primary']);
+      setPrediction(null); // Clear prediction to return to initial state
     } catch (err) {
       console.error("Error disconnecting calendar:", err);
       setError("Failed to disconnect calendar");
     }
   }
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Analyzing your stress levels...</p>
-        </div>
-      </div>
-    );
+  async function toggleCalendarSelection(calendarId: string) {
+    const newSelection = selectedCalendarIds.includes(calendarId)
+      ? selectedCalendarIds.filter(id => id !== calendarId)
+      : [...selectedCalendarIds, calendarId];
+
+    // Ensure at least one calendar is selected
+    if (newSelection.length === 0) return;
+
+    try {
+      await api.setSelectedCalendars(newSelection);
+      setSelectedCalendarIds(newSelection);
+      // Don't auto-reload - let user select multiple calendars then click "Run Analysis"
+    } catch (err) {
+      console.error("Error updating calendar selection:", err);
+      setError("Failed to update calendar selection");
+    }
   }
 
   if (error) {
@@ -178,19 +333,58 @@ export function StressDashboard() {
           </CardHeader>
           <CardContent>
             {isAuthenticated ? (
-              <div className="flex items-center gap-4">
-                <button
-                  onClick={loadStressAnalysis}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                >
-                  Sync Calendar
-                </button>
-                <button
-                  onClick={handleDisconnectCalendar}
-                  className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
-                >
-                  Disconnect
-                </button>
+              <div className="space-y-4">
+                <div className="flex items-center gap-4">
+                  <button
+                    onClick={loadStressAnalysis}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    {prediction ? "Refresh Analysis" : "Run Analysis"}
+                  </button>
+                  <button
+                    onClick={() => setShowCalendarSelector(!showCalendarSelector)}
+                    className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                  >
+                    {showCalendarSelector ? "Hide" : "Select"} Calendars ({selectedCalendarIds.length})
+                  </button>
+                  <button
+                    onClick={handleDisconnectCalendar}
+                    className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+                  >
+                    Disconnect
+                  </button>
+                </div>
+
+                {showCalendarSelector && (
+                  <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                    <h3 className="font-semibold text-gray-900 mb-3">Select Calendars to Include:</h3>
+                    <div className="space-y-2 max-h-60 overflow-y-auto">
+                      {availableCalendars.map((calendar) => (
+                        <label
+                          key={calendar.id}
+                          className="flex items-center gap-3 p-2 hover:bg-gray-100 rounded cursor-pointer"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedCalendarIds.includes(calendar.id)}
+                            onChange={() => toggleCalendarSelection(calendar.id)}
+                            className="w-4 h-4 text-blue-600 rounded"
+                          />
+                          <div
+                            className="w-4 h-4 rounded"
+                            style={{ backgroundColor: calendar.backgroundColor }}
+                          />
+                          <span className="text-sm text-gray-900">
+                            {calendar.summary}
+                            {calendar.primary && (
+                              <span className="ml-2 text-xs text-gray-500">(Primary)</span>
+                            )}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             ) : (
               <button

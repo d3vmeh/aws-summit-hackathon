@@ -10,32 +10,46 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### Tech Stack
 - **Backend**: FastAPI (Python 3.12) with Pydantic for data validation
-- **Frontend**: Mentioned in docs but not present in current directory (Next.js/React/TypeScript)
-- **AI Integration**: OpenAI GPT-5-mini for predictions and interventions (with rule-based fallback)
-- **APIs**: Google Calendar OAuth 2.0, planned GitHub and Notion/Todoist integrations
+- **Frontend**: Next.js 15.5.4 with React 19, TypeScript, Tailwind CSS 4, Turbopack
+- **AI Integration**: Claude Sonnet 4.5 via AWS Bedrock with exponential backoff retry logic
+- **APIs**: Google Calendar OAuth 2.0 with multi-calendar selection support
 
 ### Backend Structure (`/backend`)
 
 ```
 backend/
-├── main.py                        # FastAPI app entry point, CORS config, router registration
-├── models/schemas.py              # Pydantic models: CalendarEvent, Task, StressScore, BurnoutPrediction
-├── routers/
-│   ├── auth.py                    # Google OAuth flow, token management (in-memory + file)
-│   ├── stress.py                  # POST /api/stress/analyze - main analysis endpoint
-│   ├── calendar.py                # Calendar CRUD, auto-switches between Google/mock data
-│   └── tasks.py                   # Task CRUD operations
-└── utils/
-    ├── stress_calculator.py       # Core stress scoring algorithm
-    ├── intervention_engine.py     # Rule-based intervention generation
-    ├── ai_insights.py             # OpenAI integration for predictions/interventions
-    ├── google_calendar.py         # Google Calendar API wrapper
-    └── descope_utils.py           # Auth utilities
+├── main.py                        # FastAPI app entry point, CORS, calendar selection endpoints
+├── schemas.py                     # Pydantic models: CalendarEvent, Task, StressScore, BurnoutPrediction
+├── stress_calculator.py           # Core stress scoring algorithm with timezone handling
+├── ai_response.py                 # AWS Bedrock Claude Sonnet 4.5 integration with retry logic
+├── google_calendar.py             # Google Calendar OAuth + multi-calendar selection
+├── token.json                     # OAuth tokens (gitignored)
+├── credentials.json               # Google OAuth credentials (gitignored)
+├── .env                           # Environment variables (gitignored)
+└── requirements.txt               # Python dependencies
+```
+
+### Frontend Structure (`/frontend`)
+
+```
+frontend/
+├── app/
+│   ├── page.tsx                   # Main page with StressDashboard
+│   └── layout.tsx                 # Root layout
+├── components/
+│   ├── stress-dashboard.tsx       # Main dashboard with calendar selection UI
+│   └── ui/                        # shadcn/ui components (Card, Progress, Badge)
+├── lib/
+│   ├── api.ts                     # Backend API client
+│   ├── types.ts                   # TypeScript type definitions
+│   └── mock-data.ts               # Mock events/tasks for testing
+├── .env.local                     # Frontend env vars (NEXT_PUBLIC_API_URL)
+└── package.json                   # npm dependencies
 ```
 
 ## Key Algorithms
 
-### Stress Calculation (utils/stress_calculator.py)
+### Stress Calculation (stress_calculator.py)
 
 **Total Stress Score = (Calendar Factor × 0.4) + (Task Factor × 0.3) + (Sleep Factor × 0.3)**
 
@@ -44,24 +58,25 @@ backend/
 - **Sleep Factor**: Inverse of available sleep hours (8 hours = 0 stress)
 - **Risk Levels**: Low (0-40), Medium (41-60), High (61-80), Critical (81-100)
 
-The `parse_datetime()` helper handles timezone-naive datetime conversions - always use this when working with event/task dates.
+**Important**: Always use `_to_naive()` helper to convert datetimes to timezone-naive before comparisons. Frontend sends ISO strings with timezone info.
 
-### Intervention Engine (utils/intervention_engine.py)
+### AI Integration (ai_response.py)
 
-Generates specific, actionable interventions by:
-1. Analyzing stress factors and referencing specific tasks/events by name
-2. Identifying reschedulable events (social keywords: "coffee", "chat", "optional", "lunch")
-3. Calculating impact/effort ratios and sorting by ROI
-4. Returning top 5 interventions
+- Uses **Claude Sonnet 4.5** via AWS Bedrock (model ID: `us.anthropic.claude-sonnet-4-5-20250929-v1:0`)
+- **Retry Logic**: `invoke_model_with_retry()` with exponential backoff (1s, 2s, 4s) for throttling
+- **Predictions**: Analyzes schedule to provide 3 specific, personalized burnout predictions
+- **Interventions**: Generates 5 actionable recommendations referencing specific events/tasks
+- Handles `ThrottlingException` gracefully and returns fallback messages on max retries
 
-Intervention types: `reschedule`, `delegate`, `break_down`, `micro_break`
+### Google Calendar Multi-Calendar Selection (google_calendar.py)
 
-### AI Insights (utils/ai_insights.py)
-
-- Uses **OpenAI GPT-5-mini** (reasoning model) with `max_completion_tokens` (not `max_tokens`)
-- Requires `OPENAI_API_KEY` in .env, gracefully falls back to rule-based if unavailable
-- Generates context-aware predictions referencing specific calendar events and tasks
-- Always includes fallback functions for when AI calls fail
+- **Default**: Fetches from `primary` calendar only
+- **List Calendars**: `/api/calendar/list` returns all available calendars with colors
+- **Selection**: Users can select multiple calendars; events are merged from all selected calendars
+- **Persistence**: Selection stored in `GoogleCalendarClient.selected_calendar_ids` (session-based)
+- **Endpoints**:
+  - `GET /api/calendar/selected` - Get selected calendar IDs
+  - `POST /api/calendar/selected` - Update calendar selection
 
 ## Development Commands
 
@@ -71,63 +86,92 @@ Intervention types: `reschedule`, `delegate`, `break_down`, `micro_break`
 # Navigate to backend
 cd backend
 
-# Activate virtual environment
+# Activate virtual environment (if needed)
 source venv/bin/activate  # Windows: venv\Scripts\activate
 
 # Install dependencies
 pip install -r requirements.txt
 
-# Run development server
-uvicorn main:app --reload --port 8000
+# Run development server (port 8080)
+uvicorn main:app --reload --port 8080
 
 # API Documentation (auto-generated)
-# http://localhost:8000/docs (Swagger)
-# http://localhost:8000/redoc (ReDoc)
+# http://localhost:8080/docs (Swagger)
+# http://localhost:8080/redoc (ReDoc)
+```
+
+### Frontend Setup & Running
+
+```bash
+# Navigate to frontend
+cd frontend
+
+# Install dependencies
+npm install
+
+# Run development server (uses Turbopack)
+npm run dev
+# Access: http://localhost:3000 or http://localhost:3001
+
+# Build for production
+npm run build --turbopack
 ```
 
 ### Testing
 
 ```bash
-# Run test file (if present)
-python test_api.py
+# Backend health check
+curl http://localhost:8080/health
 
-# Manual API testing
-curl http://localhost:8000/health
-curl http://localhost:8000/auth/status
-curl http://localhost:8000/api/calendar/events
+# Check auth status
+curl http://localhost:8080/auth/status
+
+# List available calendars
+curl http://localhost:8080/api/calendar/list
+
+# Get selected calendars
+curl http://localhost:8080/api/calendar/selected
+
+# Get calendar events from selected calendars
+curl http://localhost:8080/api/calendar/events
 ```
 
 ## Google Calendar OAuth Integration
 
-The app supports real Google Calendar data via OAuth 2.0:
+The app supports real Google Calendar data via OAuth 2.0 with multi-calendar selection:
 
-1. **Setup**: Follow `backend/GOOGLE_OAUTH_SETUP.md` to create Google Cloud project and credentials
+1. **Setup**: Create Google Cloud project and OAuth credentials
 2. **Files**: Place `credentials.json` in `/backend` (gitignored)
-3. **Flow**: `/auth/google` → User consent → `/auth/callback` → Tokens stored in `token.json`
-4. **Token Management**: In-memory storage + file persistence for MVP, needs database for production
-5. **Auto-switching**: Calendar router automatically uses Google data when authenticated, falls back to mock data otherwise
+3. **Flow**:
+   - User clicks "Connect Google Calendar" in frontend
+   - Backend redirects to Google OAuth consent screen
+   - On approval, tokens stored in `token.json`
+   - User selects which calendars to include in analysis
+4. **Multi-Calendar**: Events are fetched from all selected calendars and merged
 
 ### Important OAuth Notes
-- Single-user mode using `user_id = "demo_user"` (MVP limitation)
+- Redirect URI MUST match: `http://localhost:8080/auth/google/callback`
+- Update this in both `.env` and Google Cloud Console
 - Tokens stored in plaintext `token.json` - NOT production-ready
-- Redirect URI MUST match: `http://localhost:8000/auth/google/callback`
+- Calendar selection is session-based (resets on server restart)
 - Requires scope: `https://www.googleapis.com/auth/calendar.readonly`
 
 ## Environment Variables
 
-### Backend `.env` (see `.env.example`)
+### Backend `.env`
 ```bash
-# Google Calendar API (required for OAuth)
-GOOGLE_CLIENT_ID=...
-GOOGLE_CLIENT_SECRET=...
-GOOGLE_REDIRECT_URI=http://localhost:8000/auth/callback
+# AWS Bedrock (required for AI predictions)
+AWS_ACCESS_KEY_ID=...
+AWS_SECRET_ACCESS_KEY=...
+AWS_DEFAULT_REGION=us-west-2
 
-# OpenAI API (optional - enables AI predictions)
-OPENAI_API_KEY=...
+# Google Calendar OAuth (required)
+GOOGLE_REDIRECT_URI=http://localhost:8080/auth/google/callback
+```
 
-# Application Settings
-DEBUG=True
-API_PORT=8000
+### Frontend `.env.local`
+```bash
+NEXT_PUBLIC_API_URL=http://localhost:8080
 ```
 
 ## Critical API Endpoints
@@ -137,78 +181,136 @@ API_PORT=8000
 
 ### Auth Flow
 - `GET /auth/google` - Returns auth URL for OAuth flow
-- `GET /auth/callback?code=...` - Handles OAuth callback, stores tokens
-- `GET /auth/status` - Check authentication status
-- `POST /auth/logout` - Clear tokens
+- `GET /auth/google/callback?code=...` - Handles OAuth callback, stores tokens, redirects to frontend
+- `GET /auth/status` - Check authentication status (`{authenticated: bool, provider: string}`)
+- `POST /auth/disconnect` - Clear tokens and disconnect calendar
 
 ### Calendar
-- `GET /api/calendar/events` - Returns Google Calendar events if authenticated, else mock data
+- `GET /api/calendar/list` - Get all available Google calendars with colors and metadata
+- `GET /api/calendar/selected` - Get currently selected calendar IDs
+- `POST /api/calendar/selected` - Update calendar selection (accepts `List[str]` of calendar IDs)
+- `GET /api/calendar/events` - Returns events from selected calendars (empty list if not authenticated)
 - `GET /api/calendar/sync` - Trigger manual calendar sync
-- `GET /api/calendar/info` - Get calendar metadata
 
 ## Code Patterns
 
-### Adding New Stress Factors
+### Working with Datetime (Critical)
 
-1. Update `StressFactors` model in `models/schemas.py`
-2. Add calculation logic in `StressCalculator.get_stress_factors()`
-3. Integrate into total score in `StressCalculator.calculate_stress_score()`
-4. Update AI prompt context in `ai_insights.py` to include new factor
-
-### Working with Datetime
-
-Always use `parse_datetime()` from `utils/stress_calculator.py` - handles both string ISO format and datetime objects, strips timezone info for consistency. The codebase works with timezone-naive datetimes.
-
-### AI Integration Pattern
-
+**Always convert to timezone-naive before comparisons:**
 ```python
-# Check if API key exists
-use_ai = os.getenv('OPENAI_API_KEY') is not None
+from datetime import datetime
 
-if use_ai:
-    try:
-        result = generate_ai_predictions(...)
-    except Exception:
-        result = generate_fallback_predictions(...)
-else:
-    result = generate_fallback_predictions(...)
+def _to_naive(dt: datetime) -> datetime:
+    """Convert datetime to timezone-naive"""
+    if dt.tzinfo is not None:
+        return dt.replace(tzinfo=None)
+    return dt
+
+# Usage
+now = _to_naive(datetime.now())
+event_start = _to_naive(event.start)
+days_away = (event_start - now).days
 ```
 
-Always provide fallback functions that don't require external APIs.
+Frontend sends ISO strings with timezone info; backend uses timezone-naive datetimes to avoid comparison errors.
 
-## Current Limitations (MVP)
+### AWS Bedrock Retry Pattern
 
-- No database persistence - uses in-memory storage and files
-- Single-user mode (`demo_user` hardcoded)
-- Tokens stored in plaintext
-- No background jobs/syncing
-- No historical pattern analysis (placeholder only)
-- Frontend not included in this directory
-- No GitHub or Notion integration yet (mentioned in roadmap)
+**Handle throttling with exponential backoff:**
+```python
+def invoke_model_with_retry(client, model_id: str, request_body: str, max_retries: int = 3):
+    for attempt in range(max_retries):
+        try:
+            response = client.invoke_model(modelId=model_id, body=request_body)
+            return json.loads(response.get('body').read())
+        except ClientError as e:
+            if e.response['Error']['Code'] == 'ThrottlingException':
+                if attempt < max_retries - 1:
+                    wait_time = (2 ** attempt) * 1  # 1s, 2s, 4s
+                    time.sleep(wait_time)
+                else:
+                    raise
+```
 
-## Production Readiness Checklist
+### Frontend Dashboard Pattern
 
-Based on `guides/IMPLEMENTATION_ROADMAP.md`:
-- [ ] Replace in-memory storage with PostgreSQL
-- [ ] Encrypt tokens before storage
-- [ ] Implement proper multi-user authentication
-- [ ] Add Celery + Redis for background calendar syncing
-- [ ] Implement WebSocket for real-time updates
-- [ ] Add GitHub OAuth and commit pattern tracking
-- [ ] Add Notion/Todoist task integration
-- [ ] Implement ML-based burnout prediction (sklearn/TensorFlow)
-- [ ] Add notification system (Twilio SMS, email, push)
-- [ ] Deploy with Docker Compose
+**User-controlled analysis flow:**
+1. Load auth status and calendars on mount (no auto-analysis)
+2. Show "Connect Google Calendar" button if not authenticated
+3. Show "Select Calendars" UI with checkboxes after connection
+4. User clicks "Run Stress Analysis" button to trigger AI analysis
+5. Button changes to "Refresh Analysis" after first run
 
-## Important Files to Check
+```typescript
+useEffect(() => {
+  checkAuthStatus();
+  // Don't auto-load analysis - let user select calendars first
+}, []);
+```
 
-- `guides/START_APP.md` - How to run the application
-- `guides/PHASE1_COMPLETE.md` - Google OAuth implementation details
-- `guides/IMPLEMENTATION_ROADMAP.md` - Future architecture plans
-- `backend/GOOGLE_OAUTH_SETUP.md` - OAuth setup instructions
+## Current Limitations & Known Issues
+
+- **Token Storage**: Plaintext `token.json` - NOT production-ready
+- **Calendar Selection**: Session-based, resets on server restart
+- **Task Management**: In-memory only, no persistence
+- **AWS Throttling**: May encounter rate limits with heavy usage (handled with retry logic)
+- **Single Region**: AWS Bedrock configured for `us-west-2` only
+- **No Database**: All data is session/file-based
+
+## Key Features Implemented
+
+✅ Google Calendar OAuth 2.0 with multi-calendar selection
+✅ AWS Bedrock Claude Sonnet 4.5 integration with retry logic
+✅ User-controlled stress analysis (no auto-run)
+✅ Calendar selection UI with color indicators
+✅ Timezone-aware datetime handling
+✅ Next.js 15 frontend with Turbopack
+✅ Full-stack integration (backend + frontend)
+
+## Important Files
+
+**Documentation:**
+- `CLAUDE.md` - This file, development guidance
+- `README.md` - Project overview and quick start
+- `backend/GOOGLE_SETUP.md` - Google OAuth setup guide
+
+**Backend Core:**
+- `backend/main.py:44` - Main stress analysis endpoint
+- `backend/ai_response.py:28` - Bedrock retry logic
+- `backend/google_calendar.py:32` - Multi-calendar selection
+- `backend/stress_calculator.py:47` - Timezone conversion helper
+
+**Frontend Core:**
+- `frontend/components/stress-dashboard.tsx:28` - No auto-analysis pattern
+- `frontend/lib/api.ts` - Backend API client
+- `frontend/.env.local` - API URL configuration
+
+## Common Errors & Troubleshooting
+
+### "redirect_uri_mismatch" (Google OAuth)
+- **Cause**: Mismatch between `.env` redirect URI and Google Cloud Console settings
+- **Fix**: Ensure both use `http://localhost:8080/auth/google/callback`
+
+### "can't compare offset-naive and offset-aware datetimes"
+- **Cause**: Datetime comparison without timezone normalization
+- **Fix**: Use `_to_naive()` helper before all datetime comparisons
+
+### "ThrottlingException" (AWS Bedrock)
+- **Cause**: Too many API requests in short time
+- **Fix**: Already handled with `invoke_model_with_retry()` exponential backoff
+
+### Dashboard runs analysis automatically
+- **Cause**: `loadStressAnalysis()` called in `useEffect`
+- **Fix**: Remove auto-load, require user to click "Run Analysis" button
+
+### Calendar selection not persisting
+- **Expected behavior**: Selection is session-based, resets on server restart
+- **Future fix**: Persist to database or localStorage
 
 ## Git Practices
 
 - **Never commit**: `.env`, `credentials.json`, `token.json` (enforced via `.gitignore`)
-- Recent commits show work on OAuth integration and file reorganization
-- Main branch: `main`
+- **Main branch**: `main`
+- **Current branch**: `dmehra`
+- **Backend port**: 8080 (not 8000)
+- **Frontend redirect**: OAuth redirects to `http://localhost:3000?auth=success`

@@ -121,6 +121,33 @@ def disconnect():
     client.disconnect()
     return {"status": "disconnected"}
 
+@app.get("/api/calendar/list")
+def list_calendars():
+    """Get list of all available Google calendars"""
+    client = get_calendar_client()
+
+    if not client.is_authenticated():
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    try:
+        calendars = client.list_calendars()
+        return {"calendars": calendars}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to list calendars: {str(e)}")
+
+@app.get("/api/calendar/selected")
+def get_selected_calendars():
+    """Get currently selected calendar IDs"""
+    client = get_calendar_client()
+    return {"selected_calendar_ids": client.get_selected_calendars()}
+
+@app.post("/api/calendar/selected")
+def set_selected_calendars(calendar_ids: List[str]):
+    """Set which calendars to include in event fetching"""
+    client = get_calendar_client()
+    client.set_selected_calendars(calendar_ids)
+    return {"selected_calendar_ids": client.get_selected_calendars()}
+
 # Calendar endpoints
 @app.get("/api/calendar/events")
 def get_events(days_ahead: int = 7):
