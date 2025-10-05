@@ -109,3 +109,9 @@ temp/
 
 # Test files
 ai_response 2.py
+references/
+test_response.json
+test_response_claude.json
+
+# Claude Code
+.claude/
