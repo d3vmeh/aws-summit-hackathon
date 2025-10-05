@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
@@ -101,9 +102,18 @@ export function StressDashboard() {
               </span>
               Powered by Claude Sonnet 4.5 on AWS Bedrock
             </div>
-            <h1 className="text-6xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-4">
-              Clarity AI
-            </h1>
+            <div className="flex items-center justify-center gap-4 mb-4">
+              <Image
+                src="/clarity-icon.png"
+                alt="Clarity AI Logo"
+                width={80}
+                height={80}
+                className="drop-shadow-lg"
+              />
+              <h1 className="text-6xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                Clarity AI
+              </h1>
+            </div>
             <p className="text-xl text-gray-600 max-w-2xl mx-auto">
               Your intelligent companion for preventing burnout and maintaining peak mental wellness
             </p>

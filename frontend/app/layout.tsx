@@ -15,6 +15,10 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Clarity AI - Burnout Prevention",
   description: "AI-powered burnout prevention system for university students",
+  icons: {
+    icon: "/clarity-icon.png",
+    apple: "/clarity-icon.png",
+  },
 };
 
 export default function RootLayout({
